@@ -1,0 +1,29 @@
+# Maven / Java
+/target/
+!.mvn/wrapper/maven-wrapper.jar
+*.log
+*.class
+
+# Eclipse / IntelliJ
+/.idea/
+/*.iml
+/.classpath
+/.project
+/.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+*.env
+*.properties.local
+/src/main/resources/application-local.properties
+/credentials.properties
+
+# VSCode
+.vscode/
+
+# Mac
+.AppleDouble
+.LSOverride
