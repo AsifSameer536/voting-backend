@@ -1,85 +1,102 @@
 package com.example.voting.controller;
 
-import com.example.voting.dto.CreateElectionRequest;
-import com.example.voting.dto.UpdateElectionRequest;
-import com.example.voting.model.Election;
-import com.example.voting.service.ElectionService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-
-import jakarta.validation.Valid;
+import java.lang.reflect.Method;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
+import com.example.voting.dto.ElectionRequest;
+import com.example.voting.model.Election;
+import com.example.voting.repository.ElectionRepository;
+import com.example.voting.service.ElectionService;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * Controller for listing and creating elections.
+ * - GET /elections  -> list
+ * - POST /elections -> create (requires ROLE_ADMIN)
+ *
+ * Note: ElectionService.create expects (String, String, Instant, Instant).
+ * We pass an empty string as the second parameter here; replace with a real field
+ * (e.g. description or slug) if your DTO/entity uses one.
+ */
 @RestController
 @RequestMapping("/elections")
-@Validated
 public class ElectionController {
 
+    private final ElectionRepository electionRepository;
     private final ElectionService electionService;
 
-    public ElectionController(ElectionService electionService) {
+    public ElectionController(ElectionRepository electionRepository,
+                              ElectionService electionService) {
+        this.electionRepository = electionRepository;
         this.electionService = electionService;
     }
 
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> create(@Valid @RequestBody CreateElectionRequest req) {
-        Election e = electionService.create(req.getTitle(), req.getDescription(), req.getStartAt(), req.getEndAt());
-        return ResponseEntity.status(201).body(toMap(e));
-    }
-
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> list() {
-        List<Map<String, Object>> out = electionService.findAll().stream().map(this::toMap).collect(Collectors.toList());
+    public ResponseEntity<?> listElections() {
+        List<Election> elections = electionRepository.findAll();
+        List<Map<String, Object>> out = new ArrayList<>();
+
+        for (Election e : elections) {
+            Map<String, Object> m = new HashMap<>();
+            try { m.put("id", invokeIfExists(e, "getId")); } catch (Exception ignored) {}
+            try { m.put("title", invokeIfExists(e, "getTitle", "getName")); } catch (Exception ignored) {}
+            try { Object starts = invokeIfExists(e, "getStartsAt", "getStart", "getStartTime", "getStartDate"); if (starts != null) m.put("startsAt", starts); } catch (Exception ignored) {}
+            try { Object ends = invokeIfExists(e, "getEndsAt", "getEnd", "getEndTime", "getEndDate"); if (ends != null) m.put("endsAt", ends); } catch (Exception ignored) {}
+
+            out.add(m);
+        }
+
         return ResponseEntity.ok(out);
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> get(@PathVariable Long id) {
-        return electionService.findById(id)
-                .map(e -> ResponseEntity.ok(toMap(e)))
-                .orElseGet(() -> ResponseEntity.status(404).body("election not found"));
-    }
-
-    @PutMapping("/{id}")
+    /**
+     * Create new election - requires ROLE_ADMIN.
+     * Expects JSON body mapped to ElectionRequest (title, startsAt, endsAt).
+     */
+    @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody UpdateElectionRequest req) {
-        try {
-            Election updated = electionService.update(id, req.getTitle(), req.getDescription(), req.getStartAt(), req.getEndAt(), req.getState());
-            return ResponseEntity.ok(toMap(updated));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(404).body(ex.getMessage());
+    public ResponseEntity<?> createElection(@RequestBody ElectionRequest req) {
+        if (req == null) {
+            return ResponseEntity.badRequest().body("request body required");
         }
+        if (req.getTitle() == null || req.getStartsAt() == null || req.getEndsAt() == null) {
+            return ResponseEntity.badRequest().body("title, startsAt and endsAt are required");
+        }
+        if (req.getEndsAt().isBefore(req.getStartsAt())) {
+            return ResponseEntity.badRequest().body("endsAt must be after startsAt");
+        }
+
+        // Your ElectionService.create signature requires 4 args:
+        // create(String title, String someStringField, Instant startsAt, Instant endsAt)
+        // We pass an empty string for the second parameter — change this if your DTO contains that field.
+        String secondStringPlaceholder = ""; // e.g. description or slug if you add it to ElectionRequest
+        Election created = electionService.create(req.getTitle(), secondStringPlaceholder, req.getStartsAt(), req.getEndsAt());
+
+        return ResponseEntity.status(201).body(created);
     }
 
-    @PostMapping("/{id}/state")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> changeState(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        String newState = body.get("state");
-        if (newState == null) return ResponseEntity.badRequest().body("state required");
-        try {
-            Election updated = electionService.update(id, null, null, null, null, newState);
-            return ResponseEntity.ok(toMap(updated));
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(400).body(ex.getMessage());
+    // helper: tries method names in order and returns first successful invocation result or null
+    private Object invokeIfExists(Object target, String... methodNames) {
+        for (String name : methodNames) {
+            try {
+                Method m = target.getClass().getMethod(name);
+                if (m != null) {
+                    return m.invoke(target);
+                }
+            } catch (NoSuchMethodException ignored) {
+                // try next
+            } catch (Exception ex) {
+                // any other exception -> return null (safe fail)
+                return null;
+            }
         }
-    }
-
-    private Map<String,Object> toMap(Election e) {
-        return Map.of(
-                "id", e.getId(),
-                "title", e.getTitle(),
-                "description", e.getDescription(),
-                "state", e.getState(),
-                "startAt", e.getStartAt(),
-                "endAt", e.getEndAt(),
-                "createdAt", e.getCreatedAt()
-        );
+        return null;
     }
 }

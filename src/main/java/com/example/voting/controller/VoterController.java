@@ -2,7 +2,6 @@ package com.example.voting.controller;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,25 +23,24 @@ public class VoterController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<?> me(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).body("unauthenticated");
+    public ResponseEntity<?> me(Authentication auth) {
+
+        if (auth == null || !auth.isAuthenticated()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
 
-        String username = authentication.getName();
+        String username = auth.getName();
 
-        Optional<Voter> opt = voterService.findByUsername(username);
-        if (opt.isPresent()) {
-            Voter v = opt.get();
-            Map<String, Object> body = new HashMap<>();
-            body.put("id", v.getId());
-            body.put("username", v.getUsername());
-            body.put("fullName", v.getFullName());
-            body.put("role", v.getRole());
-            body.put("createdAt", v.getCreatedAt());
-            return ResponseEntity.ok(body);
-        } else {
-            return ResponseEntity.status(404).body("user not found");
-        }
+        Voter voter = voterService.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Voter not found"));
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("id", voter.getId());
+        body.put("username", voter.getUsername());
+        body.put("fullName", voter.getFullName());
+        body.put("role", voter.getRole());
+        body.put("createdAt", voter.getCreatedAt());
+
+        return ResponseEntity.ok(body);
     }
 }
