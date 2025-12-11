@@ -9,6 +9,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * JPA entity for elections.
+ */
 @Entity
 @Table(name = "elections")
 public class Election {
@@ -17,27 +20,29 @@ public class Election {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 2000)
     private String description;
 
-    // lifecycle: UPCOMING, ACTIVE, CLOSED
-    @Column(nullable = false, length = 20)
-    private String state = "UPCOMING";
+    /**
+     * Possible values: UPCOMING, ACTIVE, FINISHED (or any app-defined states)
+     */
+    private String state;
 
-    // optional scheduling
-    @Column(name = "start_at")
     private Instant startAt;
-
-    @Column(name = "end_at")
     private Instant endAt;
+    private Instant createdAt;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
+    /**
+     * Map to database column is_active (not null).
+     * Use Boolean or primitive boolean — using primitive gives default false.
+     */
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = false;
 
-    // getters / setters
+    public Election() {}
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -58,4 +63,7 @@ public class Election {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { this.isActive = active; }
 }

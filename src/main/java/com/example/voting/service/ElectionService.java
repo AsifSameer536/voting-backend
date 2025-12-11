@@ -19,10 +19,12 @@ public class ElectionService {
         this.electionRepository = electionRepository;
     }
 
+    @Transactional(readOnly = true)
     public List<Election> findAll() {
         return electionRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Optional<Election> findById(Long id) {
         return electionRepository.findById(id);
     }
@@ -34,35 +36,39 @@ public class ElectionService {
         e.setDescription(description);
         e.setStartAt(startAt);
         e.setEndAt(endAt);
+        e.setCreatedAt(Instant.now());
+        // default state if not provided: UPCOMING
         e.setState("UPCOMING");
+        // IMPORTANT: set isActive to false by default (avoids DB NOT NULL issue)
+        e.setActive(false);
         return electionRepository.save(e);
     }
 
     @Transactional
     public Election update(Long id, String title, String description, Instant startAt, Instant endAt, String state) {
-        Election e = electionRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Election not found"));
+        Optional<Election> opt = electionRepository.findById(id);
+        if (opt.isEmpty()) return null;
+        Election e = opt.get();
         if (title != null) e.setTitle(title);
         if (description != null) e.setDescription(description);
         if (startAt != null) e.setStartAt(startAt);
         if (endAt != null) e.setEndAt(endAt);
-        if (state != null) {
-            if (!state.equals("UPCOMING") && !state.equals("ACTIVE") && !state.equals("CLOSED")) {
-                throw new IllegalArgumentException("Invalid state");
-            }
-            e.setState(state);
-        }
+        if (state != null) e.setState(state);
         return electionRepository.save(e);
+    }
+
+    @Transactional
+    public void deleteById(Long id) {
+        electionRepository.deleteById(id);
     }
 
     public boolean isActive(Election e) {
         if (e == null) return false;
-        // If state says ACTIVE, honor it. Optionally check schedule.
-        if ("ACTIVE".equals(e.getState())) return true;
-        // If state is UPCOMING but current time inside start/end, optionally auto-activate (don't auto-change DB)
+        if ("ACTIVE".equalsIgnoreCase(e.getState())) return true;
         Instant now = Instant.now();
         if (e.getStartAt() != null && e.getEndAt() != null) {
             return now.isAfter(e.getStartAt()) && now.isBefore(e.getEndAt());
         }
-        return false;
+        return e.isActive();
     }
 }

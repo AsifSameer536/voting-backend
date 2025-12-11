@@ -35,10 +35,12 @@ public class CandidateService {
     public Candidate create(Long electionId, String name, String manifesto) {
         Election election = electionRepository.findById(electionId)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found: " + electionId));
+
         Candidate c = new Candidate();
         c.setElection(election);
         c.setName(name);
         c.setManifesto(manifesto);
+
         return candidateRepository.save(c);
     }
 
@@ -46,13 +48,16 @@ public class CandidateService {
     public Candidate update(Long id, Long electionId, String name, String manifesto) {
         Candidate c = candidateRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Candidate not found: " + id));
+
         if (electionId != null) {
             Election election = electionRepository.findById(electionId)
                     .orElseThrow(() -> new IllegalArgumentException("Election not found: " + electionId));
             c.setElection(election);
         }
+
         if (name != null) c.setName(name);
         if (manifesto != null) c.setManifesto(manifesto);
+
         return candidateRepository.save(c);
     }
 

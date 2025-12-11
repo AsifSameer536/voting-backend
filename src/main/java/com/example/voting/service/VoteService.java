@@ -65,7 +65,7 @@ public class VoteService {
     }
 
     @Transactional(readOnly = true)
-    public Map<Long, Long> getResults(Long electionId) {
+    public Map<Long, Object> getResults(Long electionId) {
 
         return candidateRepository.findByElectionId(electionId)
                 .stream()

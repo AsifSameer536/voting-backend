@@ -1,19 +1,25 @@
 package com.example.voting.controller;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.voting.dto.CandidateRequest;
 import com.example.voting.dto.CandidateResponse;
 import com.example.voting.model.Candidate;
 import com.example.voting.model.Election;
 import com.example.voting.repository.CandidateRepository;
 import com.example.voting.repository.ElectionRepository;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/candidates")
+@RequestMapping("/api/candidates")
 public class CandidateController {
 
     private final CandidateRepository candidateRepo;
@@ -25,8 +31,9 @@ public class CandidateController {
         this.electionRepo = electionRepo;
     }
 
-    @PostMapping("/add")
+    @PostMapping
     public ResponseEntity<?> addCandidate(@RequestBody CandidateRequest req) {
+
         Election election = electionRepo.findById(req.getElectionId())
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
@@ -42,6 +49,7 @@ public class CandidateController {
 
     @GetMapping("/election/{id}")
     public ResponseEntity<?> listCandidates(@PathVariable Long id) {
+
         List<CandidateResponse> list = candidateRepo.findByElectionId(id)
                 .stream()
                 .map(c -> new CandidateResponse(

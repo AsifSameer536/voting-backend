@@ -3,11 +3,13 @@ package com.example.voting.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.example.voting.model.Candidate;
 
-@Repository
 public interface CandidateRepository extends JpaRepository<Candidate, Long> {
-    List<Candidate> findByElectionId(Long electionId);
+
+    @Query("SELECT c FROM Candidate c WHERE c.election.id = :electionId")
+    List<Candidate> findByElectionId(@Param("electionId") Long electionId);
 }
